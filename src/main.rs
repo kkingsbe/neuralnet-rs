@@ -1,7 +1,11 @@
 use std::fs;
 
+use activation_function::LayerActivation;
+use loss_function::{LossFunction, LossFunctionTargetEncoding, LossFunctionType};
 use ndarray::{prelude::*, stack, OwnedRepr};
 mod layer;
+mod activation_function;
+mod loss_function;
 
 use layer::Layer;
 use ndarray_rand::{rand_distr::{num_traits::Float, Normal}, RandomExt};
@@ -71,8 +75,11 @@ fn main() {
         [item.x, item.y]
     }).collect::<Vec<[f64; 2]>>());
 
-    let dense_1 = Layer::<3,2>::new(layer::LayerActivation::ReLU);
-    let dense_2 = Layer::<3,3>::new(layer::LayerActivation::Softmax);
+    let lf1 = LossFunction::new(LossFunctionType::CrossEntropy);
+    let dense_1 = Layer::<3,2>::new(LayerActivation::ReLU, lf1);
+
+    let lf2 = LossFunction::new(LossFunctionType::CrossEntropy);
+    let dense_2 = Layer::<3,3>::new(LayerActivation::Softmax,  lf2);
 
     let dense_1_outputs = dense_1.forward(dataset_arr);
 

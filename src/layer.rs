@@ -1,16 +1,10 @@
-use std::f64::MIN;
-
 use ndarray::prelude::*;
 use ndarray_rand::{rand_distr::Normal, RandomExt};
+use crate::{activation_function::{ActivationFunction, LayerActivation}, loss_function::{LossCalculation, LossFunction}};
 
 #[derive(Debug)]
 pub enum LayerArrayError {
     IncorrectDimension(String)
-}
-
-pub enum LayerActivation {
-    ReLU,
-    Softmax
 }
 
 /**
@@ -20,41 +14,23 @@ pub enum LayerActivation {
 pub struct Layer<const NEURONS: usize, const FAN_IN: usize> {
     weights: Array2<f64>, // Weights for each neuron are stored as a column
     biases: Array1<f64>,
-    activation: LayerActivation
+    activation: ActivationFunction,
+    loss: LossFunction
 }
 
 impl <const NEURONS: usize, const FAN_IN: usize> Layer<NEURONS, FAN_IN> {
-    pub fn new(activation: LayerActivation) -> Layer<NEURONS, FAN_IN> {
+    pub fn new(activation: LayerActivation, loss: LossFunction) -> Layer<NEURONS, FAN_IN> {
         Layer { 
             weights: 0.01 * Layer::<NEURONS, FAN_IN>::random_weights(),
             biases: Array::zeros(NEURONS),
-            activation
+            activation: ActivationFunction::new(activation),
+            loss
         }
     }
 
     fn random_weights() -> Array2<f64> {
         let normal = Normal::new(0.0, 1.0).unwrap();
         Array::random((FAN_IN, NEURONS), normal)
-    }
-
-    pub fn relu(&self, inputs: Array2<f64>) -> Array2<f64> {
-        inputs.mapv(|x| x.max(0.0))
-    }
-
-    pub fn softmax(&self, inputs: Array2<f64>) -> Array2<f64> {
-        // find the maximum value in the inputs
-        let max = inputs.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-
-        // exponentiate each item
-        let exps = inputs.mapv(|x| (x - max).exp());
-
-        // sum each of the exponentiated items in each row
-        let sums = exps.sum_axis(Axis(1));
-
-        // divide each item by the sum of the row
-        let res = exps / &sums.insert_axis(Axis(1));
-
-        res
     }
 
     pub fn set_weights(&mut self, new_weights: Array2<f64>) -> Result<(), LayerArrayError> {
@@ -99,20 +75,20 @@ impl <const NEURONS: usize, const FAN_IN: usize> Layer<NEURONS, FAN_IN> {
         Ok(())
     }
 
+    pub fn loss(&mut self) {
+
+    }
+
     pub fn forward(&self, inputs: Array2<f64>) -> Array2<f64> {
         let intermediate_output = inputs.dot(&self.weights) + &self.biases;
-
-        match self.activation {
-            LayerActivation::ReLU => self.relu(intermediate_output),
-            LayerActivation::Softmax => self.softmax(intermediate_output)
-        }
+        self.activation.forward(intermediate_output)
     }
 }
 
 #[cfg(test)]
 mod layer_tests {
     use ndarray::prelude::*;
-    use crate::layer::LayerActivation;
+    use crate::{layer::LayerActivation, loss_function::{LossFunction, LossFunctionType}};
 
     use super::Layer;
 
@@ -120,14 +96,16 @@ mod layer_tests {
     fn create_layer() {
         const NEURONS: usize = 3;
         const FAN_IN: usize = 4;
-        let layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU);
+        let lf = LossFunction::new(LossFunctionType::CrossEntropy);
+        let layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU, lf);
     }
 
     #[test]
     fn weights_validation() {
         const NEURONS: usize = 3;
         const FAN_IN: usize = 4;
-        let mut layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU);
+        let lf = LossFunction::new(LossFunctionType::CrossEntropy);
+        let mut layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU, lf);
 
         // Each weight set should have a length equal to the FAN_IN
         let test_weights_1 = array![
@@ -163,7 +141,8 @@ mod layer_tests {
     fn biases_validation() {
         const NEURONS: usize = 3;
         const FAN_IN: usize = 4;
-        let mut layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU);
+        let lf = LossFunction::new(LossFunctionType::CrossEntropy);
+        let mut layer = Layer::<NEURONS, FAN_IN>::new(LayerActivation::ReLU, lf);
 
         // The bias set should have a length equal to the number of neurons
         let test_biases_1 = array![0.1, 0.2];
@@ -186,7 +165,8 @@ mod layer_tests {
             [7., 8., 9.]
         ];
 
-        let layer = Layer::<3, 2>::new(LayerActivation::Softmax);
-        let output = layer.softmax(test_inputs);
+        let lf = LossFunction::new(LossFunctionType::CrossEntropy);
+        let layer = Layer::<3, 2>::new(LayerActivation::Softmax, lf);
+        let output = layer.forward(test_inputs);
     }
 }
