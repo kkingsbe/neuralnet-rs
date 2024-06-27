@@ -94,7 +94,7 @@ impl LossFunction {
         }
     }
 
-    fn calculate<T>(&self, outputs: Array2<f64>, target_outputs: T) -> f64 
+    pub fn calculate<T>(&self, outputs: Array2<f64>, target_outputs: T) -> f64 
     where
         T: LossTargetData,
     {

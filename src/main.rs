@@ -1,7 +1,7 @@
 use std::fs;
 
 use activation_function::LayerActivation;
-use loss_function::{LossFunction, LossFunctionTargetEncoding, LossFunctionType};
+use loss_function::{LossFunction, LossFunctionTargetEncoding, LossFunctionType, LossTargetData, SparseLossTargetData};
 use ndarray::{prelude::*, stack, OwnedRepr};
 mod layer;
 mod activation_function;
@@ -75,6 +75,9 @@ fn main() {
         [item.x, item.y]
     }).collect::<Vec<[f64; 2]>>());
 
+    let classifications: Array1<usize> = Array1::from(dataset.iter().map(|item| item.class as usize).collect::<Vec<usize>>());
+    let target_data = SparseLossTargetData::new_sparse(classifications);
+
     let lf1 = LossFunction::new(LossFunctionType::CrossEntropy);
     let dense_1 = Layer::<3,2>::new(LayerActivation::ReLU, lf1);
 
@@ -88,4 +91,9 @@ fn main() {
     let dense_2_outputs = dense_2.forward(dense_1_outputs);
 
     println!("{:#?}", dense_2_outputs.slice(s![0..5, ..]));
+
+    let loss_function = LossFunction::new(LossFunctionType::CrossEntropy);
+    let loss = loss_function.calculate(dense_2_outputs, target_data);
+
+    println!("Loss: {:#?}", loss);
 }
